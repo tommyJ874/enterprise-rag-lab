@@ -26,6 +26,73 @@ public class VectorDB {
                 .toList();
     }
 
+    public List<SearchResult> searchNearestCluster(double[] queryVector) {
+        if (clusters.isEmpty()) {
+            return List.of();
+        }
+
+        int nearestCluster = nearestCluster(queryVector);
+
+        return search(queryVector, nearestCluster);
+    }
+
+    public List<SearchResult> searchNearestCluster(double[] queryVector, int topK) {
+        validateTopK(topK);
+
+        return searchNearestCluster(queryVector).stream()
+                .limit(topK)
+                .toList();
+    }
+
+    public int nearestCluster(double[] queryVector) {
+        if (clusters.isEmpty()) {
+            throw new IllegalStateException("No clusters exist.");
+        }
+
+        int nearestCluster = -1;
+        double bestScore = Double.NEGATIVE_INFINITY;
+
+        for (Integer cluster : clusters.keySet()) {
+            double score = Similarity.cosine(queryVector, centroid(cluster));
+
+            if (score > bestScore) {
+                bestScore = score;
+                nearestCluster = cluster;
+            }
+        }
+
+        return nearestCluster;
+    }
+
+    public double[] centroid(int cluster) {
+        List<Document> documents = clusters.get(cluster);
+
+        if (documents == null || documents.isEmpty()) {
+            throw new IllegalArgumentException("Cluster does not exist.");
+        }
+
+        int dimension = documents.get(0).getVector().length;
+        double[] centroid = new double[dimension];
+
+        for (Document document : documents) {
+            double[] vector = document.getVector();
+
+            if (vector.length != dimension) {
+                throw new IllegalArgumentException("All vectors in a cluster must have the same dimension.");
+            }
+
+            for (int i = 0; i < dimension; i++) {
+                centroid[i] += vector[i];
+            }
+        }
+
+        for (int i = 0; i < dimension; i++) {
+            centroid[i] /= documents.size();
+        }
+
+        return centroid;
+    }
+
     public List<SearchResult> bruteForceSearch(double[] queryVector) {
         List<Document> documents = clusters.values().stream()
                 .flatMap(List::stream)

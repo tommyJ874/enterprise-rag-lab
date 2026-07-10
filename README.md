@@ -77,6 +77,28 @@ Cluster 3: 보험가입, 가입설계, 납입기간, 해지환급금
 
 질문이 "육아휴직 신청은 어디서 하나요?"에 가깝다면 재무/보험 문서를 모두 비교하지 않고 HR cluster 안에서만 검색할 수 있습니다.
 
+### Centroid Search
+
+각 cluster의 대표 벡터인 centroid를 계산하고, query vector와 가장 가까운 centroid를 먼저 찾습니다.
+
+```text
+Query
+  |
+  v
+Cluster centroid들과 similarity 계산
+  |
+  v
+가장 가까운 Cluster 선택
+  |
+  v
+선택된 Cluster 내부 문서 검색
+  |
+  v
+Top K 반환
+```
+
+이 구조는 IVF(Inverted File Index)의 핵심 아이디어와 연결됩니다.
+
 ## Core Classes
 
 - `Document`: id, text, vector, cluster를 가진 저장 단위
@@ -130,8 +152,8 @@ src/test/java/com/example/enterpriseraglab
 
 ## Next Step
 
-현재 clustered search는 query가 어떤 cluster를 검색해야 하는지 외부에서 알고 있다고 가정합니다.
+현재는 가장 가까운 cluster 하나만 선택해 검색합니다.
 
-다음 단계에서는 각 cluster의 대표 벡터인 centroid를 만들고, query vector와 centroid들의 cosine similarity를 비교해 가장 가까운 cluster를 자동으로 선택합니다.
+다음 단계에서는 가까운 cluster 여러 개를 후보로 선택해 검색 품질과 검색 속도의 균형을 조절합니다.
 
-이 단계가 IVF의 핵심 아이디어입니다.
+이 과정을 통해 IVF에서 `nprobe` 값이 왜 중요한지 실험합니다.
