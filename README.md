@@ -99,6 +99,31 @@ Top K 반환
 
 이 구조는 IVF(Inverted File Index)의 핵심 아이디어와 연결됩니다.
 
+### Online Centroid Update
+
+새 문서가 들어올 때마다 cluster의 모든 문서를 다시 읽어 평균을 구하지 않습니다.
+
+기존 centroid와 cluster 문서 수만 사용해 새 centroid를 갱신합니다.
+
+```text
+newCentroid = (oldCentroid * count + newVector) / (count + 1)
+```
+
+벡터에서는 각 차원마다 같은 공식을 적용합니다.
+
+```text
+old centroid: (4, 5)
+count: 3
+new vector: (8, 9)
+
+x = (4 * 3 + 8) / 4 = 5
+y = (5 * 3 + 9) / 4 = 6
+
+new centroid: (5, 6)
+```
+
+이 방식은 새 문서를 추가할 때 전체 cluster를 다시 평균내지 않으므로, insert 시 centroid 업데이트 비용을 문서 수가 아니라 vector dimension에만 비례하도록 줄입니다.
+
 ## Core Classes
 
 - `Document`: id, text, vector, cluster를 가진 저장 단위
@@ -152,7 +177,7 @@ src/test/java/com/example/enterpriseraglab
 
 ## Next Step
 
-현재는 가장 가까운 cluster 하나만 선택해 검색합니다.
+현재는 insert 시 centroid를 점진적으로 갱신하고, 검색 시 가장 가까운 cluster 하나만 선택합니다.
 
 다음 단계에서는 가까운 cluster 여러 개를 후보로 선택해 검색 품질과 검색 속도의 균형을 조절합니다.
 

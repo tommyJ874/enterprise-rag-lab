@@ -89,6 +89,41 @@ class VectorDBTests {
     }
 
     @Test
+    void updateCentroidUpdatesMeanInPlaceWithoutReadingPreviousVectors() {
+        double[] centroid = {4.0, 5.0};
+
+        VectorDB.updateCentroid(centroid, new double[]{8.0, 9.0}, 3);
+
+        assertThat(centroid[0]).isCloseTo(5.0, within(0.000000001));
+        assertThat(centroid[1]).isCloseTo(6.0, within(0.000000001));
+    }
+
+    @Test
+    void insertUpdatesStoredCentroidIncrementally() {
+        VectorDB vectorDB = new VectorDB();
+        vectorDB.insert(new Document("doc-1", "첫 번째 문서", new double[]{2.0, 3.0}, 1));
+        vectorDB.insert(new Document("doc-2", "두 번째 문서", new double[]{4.0, 5.0}, 1));
+        vectorDB.insert(new Document("doc-3", "세 번째 문서", new double[]{6.0, 7.0}, 1));
+        vectorDB.insert(new Document("doc-4", "새 문서", new double[]{8.0, 9.0}, 1));
+
+        double[] centroid = vectorDB.centroid(1);
+
+        assertThat(centroid[0]).isCloseTo(5.0, within(0.000000001));
+        assertThat(centroid[1]).isCloseTo(6.0, within(0.000000001));
+    }
+
+    @Test
+    void centroidReturnsCopyOfStoredCentroid() {
+        VectorDB vectorDB = new VectorDB();
+        vectorDB.insert(new Document("doc-1", "육아휴직", new double[]{1.0, 0.0}, 1));
+
+        double[] centroid = vectorDB.centroid(1);
+        centroid[0] = 999.0;
+
+        assertThat(vectorDB.centroid(1)[0]).isEqualTo(1.0);
+    }
+
+    @Test
     void nearestClusterReturnsClusterWithClosestCentroid() {
         VectorDB vectorDB = new VectorDB();
         vectorDB.insert(new Document("parental-leave", "육아휴직", new double[]{1.0, 0.0}, 1));
@@ -131,6 +166,14 @@ class VectorDBTests {
         VectorDB vectorDB = new VectorDB();
 
         assertThatThrownBy(() -> vectorDB.centroid(1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void updateCentroidRejectsInvalidInput() {
+        assertThatThrownBy(() -> VectorDB.updateCentroid(new double[]{1.0}, new double[]{1.0}, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> VectorDB.updateCentroid(new double[]{1.0}, new double[]{1.0, 2.0}, 1))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

@@ -8,9 +8,29 @@ import java.util.Map;
 
 public class VectorDB {
     private final Map<Integer, List<Document>> clusters = new HashMap<>();
+    private final Map<Integer, double[]> centroids = new HashMap<>();
+    private final Map<Integer, Integer> clusterCounts = new HashMap<>();
 
     public void insert(Document document) {
-        clusters.computeIfAbsent(document.getCluster(), key -> new ArrayList<>())
+        int cluster = document.getCluster();
+        double[] vector = document.getVector();
+
+        if (vector == null) {
+            throw new IllegalArgumentException("Vector must not be null.");
+        }
+
+        if (!centroids.containsKey(cluster)) {
+            centroids.put(cluster, vector.clone());
+            clusterCounts.put(cluster, 1);
+        } else {
+            double[] centroid = centroids.get(cluster);
+            int count = clusterCounts.get(cluster);
+
+            updateCentroid(centroid, vector, count);
+            clusterCounts.put(cluster, count + 1);
+        }
+
+        clusters.computeIfAbsent(cluster, key -> new ArrayList<>())
                 .add(document);
     }
 
@@ -52,12 +72,12 @@ public class VectorDB {
         int nearestCluster = -1;
         double bestScore = Double.NEGATIVE_INFINITY;
 
-        for (Integer cluster : clusters.keySet()) {
-            double score = Similarity.cosine(queryVector, centroid(cluster));
+        for (Map.Entry<Integer, double[]> entry : centroids.entrySet()) {
+            double score = Similarity.cosine(queryVector, entry.getValue());
 
             if (score > bestScore) {
                 bestScore = score;
-                nearestCluster = cluster;
+                nearestCluster = entry.getKey();
             }
         }
 
@@ -65,32 +85,31 @@ public class VectorDB {
     }
 
     public double[] centroid(int cluster) {
-        List<Document> documents = clusters.get(cluster);
+        double[] centroid = centroids.get(cluster);
 
-        if (documents == null || documents.isEmpty()) {
+        if (centroid == null) {
             throw new IllegalArgumentException("Cluster does not exist.");
         }
 
-        int dimension = documents.get(0).getVector().length;
-        double[] centroid = new double[dimension];
+        return centroid.clone();
+    }
 
-        for (Document document : documents) {
-            double[] vector = document.getVector();
-
-            if (vector.length != dimension) {
-                throw new IllegalArgumentException("All vectors in a cluster must have the same dimension.");
-            }
-
-            for (int i = 0; i < dimension; i++) {
-                centroid[i] += vector[i];
-            }
+    public static void updateCentroid(double[] centroid, double[] newVector, int count) {
+        if (count < 1) {
+            throw new IllegalArgumentException("count must be greater than 0.");
         }
 
-        for (int i = 0; i < dimension; i++) {
-            centroid[i] /= documents.size();
+        if (centroid == null || newVector == null) {
+            throw new IllegalArgumentException("Vectors must not be null.");
         }
 
-        return centroid;
+        if (centroid.length != newVector.length) {
+            throw new IllegalArgumentException("Vectors must have the same dimension.");
+        }
+
+        for (int i = 0; i < centroid.length; i++) {
+            centroid[i] = (centroid[i] * count + newVector[i]) / (count + 1);
+        }
     }
 
     public List<SearchResult> bruteForceSearch(double[] queryVector) {
